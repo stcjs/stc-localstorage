@@ -106,20 +106,19 @@ export default class LocalstoragePlugin extends Plugin {
       LsJsCode = await this.readFile(`${LsJsPath}/localstorage.js`);
     }
 
+    let oldTokens = await this.getAst();
     let newTokens = [];
-
-    let tokens = await this.getAst();
-    let lsFlagTokens = await this.getlsFlagTokens();
-
     let findLSFlag = false;
 
-    for(let token of tokens) {
+    for(let token of oldTokens) {
       let tokenType = token.type;
 
       //找到了 LS 占位符
       if(tokenType === this.TokenType.TPL && '$lscookie' == token.ext.value) {
-        [].push.apply(newTokens, lsFlagTokens);
         findLSFlag = true;
+        
+        let tokens = await this.getlsFlagTokens();
+        [].push.apply(newTokens, tokens);
         
         continue;
       }
@@ -130,7 +129,6 @@ export default class LocalstoragePlugin extends Plugin {
 
         //在外链标签上找到了 data-ls 标记
         if(this.hasLsAttr(tokenType, attrs)) {
-
           //data-ls 属性必须用在 LS 占位符之后
           if(!findLSFlag) {
             this.fatal(`localStorage cookie name must be set before style or script`, token.loc.start.line, token.loc.start.column);
@@ -138,7 +136,6 @@ export default class LocalstoragePlugin extends Plugin {
           }
 
           let tokens = await this.getLsTagTokens(tokenType, token, attrs);
-
           [].push.apply(newTokens, tokens);
 
           continue;
@@ -164,13 +161,7 @@ export default class LocalstoragePlugin extends Plugin {
       return [];
     }
 
-    let source;
-
-    if(isScript) {
-      source = this.stc.flkit.getHtmlAttrValue(attrs, 'src');
-    } else {
-      source = this.stc.flkit.getHtmlAttrValue(attrs, 'href');
-    }
+    let source = this.stc.flkit.getHtmlAttrValue(attrs, isScript ? 'src' : 'href');
 
     //远程地址移除 data-ls 后原样输出
     if(isRemoteUrl(source)) {
