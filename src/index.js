@@ -29,6 +29,8 @@ const RegInCss = [{
   }
 ];
 
+const RegLsCookie = /lscookie\s*=\s*[\'\"]?(\w+)[\'\"]?/i;
+
 //默认配置项
 const DefaultOpt = {
   minLength     : 1000,                //存到 LS 中的文件允许的最小字符数
@@ -69,7 +71,7 @@ export default class LocalstoragePlugin extends Plugin {
     let content = await this.getContent('utf-8');
 
     //不包含特征的文件，直接忽略
-    if(!['data-ls', 'lscookie'].some(s => content.indexOf(s) > -1)) {
+    if(!RegLsCookie.test(content) || content.indexOf('data-ls') < 0) {
       return;
     }
 
@@ -114,7 +116,7 @@ export default class LocalstoragePlugin extends Plugin {
       let tokenType = token.type;
 
       //找到了 LS 占位符
-      if(tokenType === this.TokenType.TPL && '$lscookie' == token.ext.value) {
+      if(tokenType === this.TokenType.TPL && RegLsCookie.test(token.ext.value)) {
         findLSFlag = true;
         
         let tokens = await this.getlsFlagTokens();
@@ -169,7 +171,14 @@ export default class LocalstoragePlugin extends Plugin {
       return [token];
     }
 
-    let file = this.getFileByPath(source);
+    let file;
+
+    try {
+      file = this.getFileByPath(source);
+    } catch(e) {
+      this.fatal(`can't open '${source}' file`, token.loc.start.line, token.loc.start.column);
+      return [];
+    }
 
     //最小字符串判断
     let content = await file.getContent('utf-8');
@@ -230,7 +239,7 @@ export default class LocalstoragePlugin extends Plugin {
     newTokens[i++] = this.createRawToken(this.TokenType.HTML_TAG_SCRIPT, `${this.options.lsToHtml}("${stcLsName}","${isScript ? 'script' : 'style'}","${this.options.lsCookie}")`);
     newTokens[i++] = this.createRawToken(this.TokenType.TPL, conditionCode.else);
     newTokens[i++] = sourceToken;
-    newTokens[i++] = this.createRawToken(this.TokenType.HTML_TAG_SCRIPT, `${this.options.htmlToLs}("${stcLsName}","${stcLsName}");${this.options.updateVersion}("${this.options.lsCookie}", "${conditionCode.key}", "${conditionCode.version}")`);
+    newTokens[i++] = this.createRawToken(this.TokenType.HTML_TAG_SCRIPT, `${this.options.htmlToLs}("${stcLsName}","${stcLsName}");${this.options.updateVersion}("${this.options.lsCookie}", "${conditionCode.key}", "${conditionCode.version}");`);
     newTokens[i++] = this.createRawToken(this.TokenType.TPL, conditionCode.end);
     newTokens[i++] = this.createRawToken(this.TokenType.TPL, supportCode.else);
     //不支持 LocalStorage，移除 data-ls 后原样输出
@@ -481,6 +490,11 @@ export default class LocalstoragePlugin extends Plugin {
 
   //全部文件跑完之后的全局处理
   static async after(files, $this) {
+    //始终没有初始化
+    if(!AppConfig) {
+      return;
+    }
+
     let simpleConfig = {};
     let newConfig = {};
 
