@@ -14,7 +14,6 @@ import {
 } from 'stc-helper';
 
 import fs from 'fs';
-//import uglify from 'stc-uglify';
 import {resolve} from 'url';
 
 const RegInCss = [
@@ -241,6 +240,7 @@ export default class LocalstoragePlugin extends Plugin {
       sourceContent = this.avoidHasDelimiters(sourceContent);
     }
 
+    //创建对应资源 inline 形态的 token
     let sourceToken = this.createRawToken(this.TokenType[isScript ? 'HTML_TAG_SCRIPT' : 'HTML_TAG_STYLE'], sourceContent);
     sourceToken.ext.start.ext.attrs = [{name : 'id', value : stcLsName, quote : '"', nameLowerCase : 'id'}];
 
