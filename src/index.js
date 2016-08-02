@@ -499,11 +499,6 @@ export default class LocalstoragePlugin extends Plugin {
     }
   }
 
-  async readFile(path) {
-      let readFile = promisify(fs.readFile, fs);
-      return (await readFile(path)).toString('utf-8');
-  }
-
   update(tokens) {
     if(tokens){
       this.setAst(tokens);
