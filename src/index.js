@@ -525,7 +525,12 @@ export default class LocalstoragePlugin extends Plugin {
 
     await writeFile(appConfigFile, JSON.stringify(newConfig));
   }
-
+  /**
+   * default include
+   */
+  static include(){
+    return {type: 'tpl'}
+  }
   static cluster() {
     return false;
   }
