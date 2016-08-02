@@ -33,12 +33,19 @@ const RegLsCookie = /lscookie\s*=\s*[\'\"]?(\w+)[\'\"]?/i;
 
 //默认配置项
 const DefaultOpt = {
-  minLength     : 1000,                //存到 LS 中的文件允许的最小字符数
-  nlsCookie     : 'stc_nls',           //不支持 LS 时，记录的 cookie name
+  minLength     : 1000,               //存到 LS 中的文件允许的最小字符数
+
+  nlsCookie     : 'stc_nls',          //不支持 LS 时，记录的 cookie name
   lsCookie      : 'stc_ls',
-  htmlToLs      : 'LS.html2ls', 
+
+  htmlToLs      : 'LS.html2ls',       //基础 JS 提供的三个接口
   lsToHtml      : 'LS.ls2html', 
   updateVersion : 'LS.updateVersion',
+
+  blockStart    : '',                 //指定定界符。不指定时取 config.tpl.ld/rd
+  blockEnd      : '',
+  variableStart : '',
+  variableEnd   : '',
 };
 
 const LsConfigKey = '--stc-ls-config-key--';
