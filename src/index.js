@@ -312,13 +312,13 @@ export default class LocalstoragePlugin extends Plugin {
     let baseCode = Adapter.getLsBaseCode();
     let parseCookieCode = Adapter.getLsParseCookieCode();
 
-    newTokens[i++] = this.createRawToken(this.TokenType.TPL, supportCode.if);
-    newTokens[i++] = this.createRawToken(this.TokenType.TPL, baseCode.if);
+    newTokens[i++] = this.createToken(this.TokenType.TPL, supportCode.if);
+    newTokens[i++] = this.createToken(this.TokenType.TPL, baseCode.if);
     newTokens[i++] = this.createRawToken(this.TokenType.HTML_TAG_SCRIPT, LsJsCode);
-    newTokens[i++] = this.createRawToken(this.TokenType.TPL, baseCode.end);
-    newTokens[i++] = this.createRawToken(this.TokenType.TPL, parseCookieCode);
-    newTokens[i++] = this.createRawToken(this.TokenType.TPL, LsConfigKey);
-    newTokens[i++] = this.createRawToken(this.TokenType.TPL, supportCode.end);
+    newTokens[i++] = this.createToken(this.TokenType.TPL, baseCode.end);
+    newTokens[i++] = this.createToken(this.TokenType.TPL, parseCookieCode);
+    newTokens[i++] = this.createToken(this.TokenType.TPL, LsConfigKey);
+    newTokens[i++] = this.createToken(this.TokenType.TPL, supportCode.end);
 
     return newTokens;
   }
