@@ -1,6 +1,6 @@
 {
   "name": "stc-localstorage",
-  "description": "",
+  "description": "LocalStorage for stc",
   "version": "1.0.4",
   "author": {
     "name": "quguangyu",
