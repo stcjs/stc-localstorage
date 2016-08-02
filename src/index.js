@@ -1,3 +1,5 @@
+'use strict';
+
 import Plugin from 'stc-plugin';
 
 import {
@@ -8,25 +10,17 @@ import {
   isDirectory, 
   mkdir,
   md5,
+  ResourceRegExp
 } from 'stc-helper';
 
 import fs from 'fs';
-import uglify from 'stc-uglify';
+//import uglify from 'stc-uglify';
 import {resolve} from 'url';
 
-const RegInCss = [{
-    // background image
-    regexp: /url\s*\(\s*([\'\"]?)([\w\-\/\.\@]+\.(?:png|jpg|gif|jpeg|ico|cur|webp))(?:\?[^\?\'\"\)\s]*)?\1\s*\)/i,
-    index: 2
-  }, {
-    // font
-    regexp: /url\s*\(\s*([\'\"]?)([^\'\"\?]+\.(?:eot|woff|woff2|ttf|svg))([^\s\)\'\"]*)\1\s*\)/ig,
-    index: 2
-  }, {
-    // ie filter
-    regexp: /src\s*=\s*([\'\"])?([^\'\"]+\.(?:png|jpg|gif|jpeg|ico|cur|webp))(?:\?[^\?\'\"\)\s]*)?\1\s*/i,
-    index: 2
-  }
+const RegInCss = [
+  ResourceRegExp.background,
+  ResourceRegExp.font,
+  ResourceRegExp.filter
 ];
 
 const RegLsCookie = /lscookie\s*=\s*[\'\"]?(\w+)[\'\"]?/i;
@@ -38,7 +32,7 @@ const DefaultOpt = {
   lsCookie      : 'stc_ls',
   htmlToLs      : 'LS.html2ls', 
   lsToHtml      : 'LS.ls2html', 
-  updateVersion : 'LS.updateVersion',
+  updateVersion : 'LS.updateVersion'
 };
 
 const LsConfigKey = '--stc-ls-config-key--';
@@ -88,7 +82,7 @@ export default class LocalstoragePlugin extends Plugin {
     //如果没有初始化过，就执行初始化
     if(!AppConfig) {
       //读取 APP Config
-      await this.getAppConfig();
+      this.getAppConfig();
 
       //Adapter
       let adapter = this.options.adapter;
@@ -105,7 +99,8 @@ export default class LocalstoragePlugin extends Plugin {
       Adapter = new adapter(this.options, this.config);
 
       //localstorage 基础 JS 代码
-      LsJsCode = await this.readFile(`${LsJsPath}/localstorage.js`);
+      LsJsCode = fs.readFileSync(`${LsJsPath}/localstorage.js`, 'utf8');
+      LsJsCode = this.avoidHasDelimiters(LsJsCode);
     }
 
     let oldTokens = await this.getAst();
@@ -126,7 +121,7 @@ export default class LocalstoragePlugin extends Plugin {
       }
       
       //找到外链标签
-      if(tokenType === this.TokenType.HTML_TAG_SCRIPT || (tokenType === this.TokenType.HTML_TAG_START && token.ext.tag == 'link')) {
+      if(tokenType === this.TokenType.HTML_TAG_SCRIPT || (tokenType === this.TokenType.HTML_TAG_START && token.ext.tag === 'link')) {
         let attrs = this.getAttrs(tokenType, token);
 
         //在外链标签上找到了 data-ls 标记
@@ -149,6 +144,26 @@ export default class LocalstoragePlugin extends Plugin {
     }
 
     return newTokens;
+  }
+  /**
+   * avoid has delimiters
+   */
+  avoidHasDelimiters(content){
+    let delimiters = [].concat(this.config.tpl.ld).concat(this.config.tpl.rd);
+    while(true){
+      let rcontent = content;
+      delimiters.forEach(item => {
+        if(item.length <= 1){
+          return;
+        }
+        rcontent = rcontent.replace(item, `${item[0]} ${item.slice(1)}`);
+      });
+      if(rcontent === content){
+        break;
+      }
+      content = rcontent;
+    }
+    return content;
   }
 
   //根据含有 data-ls 属性的 token 生成新的 token lists
@@ -216,11 +231,7 @@ export default class LocalstoragePlugin extends Plugin {
       //tokens => content
       await sourceFile.setAst(tokens);
       sourceContent = await sourceFile.getContent('utf-8');
-
-      //maybe has %} in css
-      [[/%}/g, '%;}'], [/}}/g, '} }'], [/{#/g, '{ #']].forEach(item => {
-        sourceContent = sourceContent.replace(item[0], item[1]);
-      });
+      sourceContent = this.avoidHasDelimiters(sourceContent);
     }
 
     let sourceToken = this.createRawToken(this.TokenType[isScript ? 'HTML_TAG_SCRIPT' : 'HTML_TAG_STYLE'], sourceContent);
@@ -234,18 +245,18 @@ export default class LocalstoragePlugin extends Plugin {
     let supportCode = Adapter.getLsSupportCode();
     let conditionCode = Adapter.getLsConditionCode(lsName);
 
-    newTokens[i++] = this.createRawToken(this.TokenType.TPL, supportCode.if);
-    newTokens[i++] = this.createRawToken(this.TokenType.TPL, conditionCode.if);
+    newTokens[i++] = this.createToken(this.TokenType.TPL, supportCode.if);
+    newTokens[i++] = this.createToken(this.TokenType.TPL, conditionCode.if);
     newTokens[i++] = this.createRawToken(this.TokenType.HTML_TAG_SCRIPT, `${this.options.lsToHtml}("${stcLsName}","${isScript ? 'script' : 'style'}","${this.options.lsCookie}")`);
-    newTokens[i++] = this.createRawToken(this.TokenType.TPL, conditionCode.else);
+    newTokens[i++] = this.createToken(this.TokenType.TPL, conditionCode.else);
     newTokens[i++] = sourceToken;
     newTokens[i++] = this.createRawToken(this.TokenType.HTML_TAG_SCRIPT, `${this.options.htmlToLs}("${stcLsName}","${stcLsName}");${this.options.updateVersion}("${this.options.lsCookie}", "${conditionCode.key}", "${conditionCode.version}");`);
-    newTokens[i++] = this.createRawToken(this.TokenType.TPL, conditionCode.end);
-    newTokens[i++] = this.createRawToken(this.TokenType.TPL, supportCode.else);
+    newTokens[i++] = this.createToken(this.TokenType.TPL, conditionCode.end);
+    newTokens[i++] = this.createToken(this.TokenType.TPL, supportCode.else);
     //不支持 LocalStorage，移除 data-ls 后原样输出
     this.removeLsAttr(tokenType, token);
     newTokens[i++] = token;
-    newTokens[i++] = this.createRawToken(this.TokenType.TPL, supportCode.end);
+    newTokens[i++] = this.createToken(this.TokenType.TPL, supportCode.end);
 
     return newTokens;
   }
@@ -260,8 +271,8 @@ export default class LocalstoragePlugin extends Plugin {
         RegInCss.some(item => {
           let flag = false;
 
-          token.ext.value.replace(item.regexp, (...args) => {
-            let resPath = args[item.index];
+          token.ext.value.replace(item, (...args) => {
+            let resPath = args[2];
 
             // only resolve relative path
             if(resPath && !isRemoteUrl(resPath) && /^\.{2}\//.test(resPath)) {
@@ -310,14 +321,14 @@ export default class LocalstoragePlugin extends Plugin {
     let attrs = [];
 
     //处理 Link
-    if(tokenType == this.TokenType.HTML_TAG_START) {
+    if(tokenType === this.TokenType.HTML_TAG_START) {
       attrs = token.ext.attrs;
 
       return attrs;
     } 
 
     //处理 Script
-    if(tokenType == this.TokenType.HTML_TAG_SCRIPT) {
+    if(tokenType === this.TokenType.HTML_TAG_SCRIPT) {
       attrs = token.ext.start.ext.attrs;
 
       return attrs;
@@ -327,7 +338,7 @@ export default class LocalstoragePlugin extends Plugin {
   }
 
   removeLsAttr(tokenType, token) {
-    if(tokenType == this.TokenType.HTML_TAG_START) {
+    if(tokenType === this.TokenType.HTML_TAG_START) {
       token.ext.attrs = token.ext.attrs.filter(attr => attr.name !== 'data-ls');
     } else {
       token.ext.start.ext.attrs = token.ext.start.ext.attrs.filter(attr => attr.name !== 'data-ls');
@@ -337,7 +348,7 @@ export default class LocalstoragePlugin extends Plugin {
   //判断 attr 中是否存在 data-ls
   hasLsAttr(tokenType, attrs) {
     //处理 Link
-    if(tokenType == this.TokenType.HTML_TAG_START) {
+    if(tokenType === this.TokenType.HTML_TAG_START) {
       //不是 CSS，直接返回
       if(this.stc.flkit.getHtmlAttrValue(attrs, 'rel') !== 'stylesheet') {
         return false;
@@ -356,7 +367,7 @@ export default class LocalstoragePlugin extends Plugin {
       return true;
     } 
     //处理 Script
-    else if(tokenType == this.TokenType.HTML_TAG_SCRIPT) {
+    else if(tokenType === this.TokenType.HTML_TAG_SCRIPT) {
       //没有 data-ls 属性，直接返回
       if(!this.stc.flkit.getHtmlAttrValue(attrs, 'data-ls')) {
         return false;
@@ -381,7 +392,7 @@ export default class LocalstoragePlugin extends Plugin {
       return;
     }
 
-    if(lsConfig.md5 != sourceMd5) {
+    if(lsConfig.md5 !== sourceMd5) {
       lsConfig.md5 = sourceMd5;
 
       let version = lsConfig.version;
@@ -402,7 +413,7 @@ export default class LocalstoragePlugin extends Plugin {
     let lsConfig = AppConfig[lsName];
 
     if(lsConfig) {
-      lsConfig['invoked'] = true;
+      lsConfig.invoked = true;
 
       return lsConfig;
     }
@@ -418,7 +429,7 @@ export default class LocalstoragePlugin extends Plugin {
 
     let fileKey = ''; //新文件的 Key
 
-    if(keyIndex == -1) {
+    if(keyIndex === -1) {
       fileKey = KeyList[0]; //从 0 开始
     } else {
       if(keyIndex < KeyList.length - 1) { //文件还没满，则使用下一个
@@ -455,7 +466,7 @@ export default class LocalstoragePlugin extends Plugin {
       key     : fileKey,
       version : KeyList[0],
       md5     : '',
-      invoked : true,
+      invoked : true
     };
 
     AppConfig[lsName] = data;
@@ -464,16 +475,20 @@ export default class LocalstoragePlugin extends Plugin {
   }
 
   async getAppConfig() {
-    if(!await isDirectory(AppConfigPath)) {
-      await mkdir(AppConfigPath);
+    if(!isDirectory(AppConfigPath)) {
+      mkdir(AppConfigPath);
     }
 
     let appConfigFile = `${AppConfigPath}/${this.options.appId}.json`;
 
     if(isFile(appConfigFile)) {
       try {
-        AppConfig = JSON.parse(await this.readFile(appConfigFile));
-      } catch(e) { }
+        AppConfig = JSON.parse(fs.readFileSync(appConfigFile, 'utf8'));
+      } catch(e) { 
+        AppConfig = {};
+      }
+    }else{
+      AppConfig = {};
     }
   }
 
@@ -483,13 +498,13 @@ export default class LocalstoragePlugin extends Plugin {
   }
 
   update(tokens) {
-    this.setAst(tokens);
-
-    return tokens;
+    if(tokens){
+      this.setAst(tokens);
+    }
   }
 
   //全部文件跑完之后的全局处理
-  static async after(files, $this) {
+  static async after(files, instance) {
     //始终没有初始化
     if(!AppConfig) {
       return;
@@ -513,7 +528,7 @@ export default class LocalstoragePlugin extends Plugin {
     let configCode = Adapter.getLsConfigCode(simpleConfig);
 
     //替换占位符
-    files.forEach(async file => {
+    files.forEach(async (file) => {
       let fileContent = await file.getContent('utf-8');
       fileContent = fileContent.replace(new RegExp(LsConfigKey, 'g'), configCode);
       await file.setContent(fileContent);
@@ -521,7 +536,7 @@ export default class LocalstoragePlugin extends Plugin {
 
     //存储文件
     let writeFile = promisify(fs.writeFile, fs);
-    let appConfigFile = `${AppConfigPath}/${$this.options.appId}.json`;
+    let appConfigFile = `${AppConfigPath}/${instance.options.appId}.json`;
 
     await writeFile(appConfigFile, JSON.stringify(newConfig));
   }
@@ -529,8 +544,9 @@ export default class LocalstoragePlugin extends Plugin {
    * default include
    */
   static include(){
-    return {type: 'tpl'}
+    return {type: 'tpl'};
   }
+
   static cluster() {
     return false;
   }
