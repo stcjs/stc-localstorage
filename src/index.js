@@ -1,6 +1,4 @@
-'use strict';
-
-import Plugin from 'stc-plugin';
+mport Plugin from 'stc-plugin';
 
 import {
   extend, 
