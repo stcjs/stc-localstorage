@@ -1,4 +1,4 @@
-mport Plugin from 'stc-plugin';
+import Plugin from 'stc-plugin';
 
 import {
   extend, 
@@ -11,8 +11,8 @@ import {
   ResourceRegExp
 } from 'stc-helper';
 
-import fs from 'fs';
-import {resolve} from 'url';
+import { readFileSync } from 'fs';
+import { resolve } from 'url';
 
 const RegInCss = [
   ResourceRegExp.background,
@@ -86,24 +86,26 @@ export default class LocalstoragePlugin extends Plugin {
     //如果没有初始化过，就执行初始化
     if(!AppConfig) {
       //读取 APP Config
-      this.getAppConfig();
+      AppConfig = this.storage(this.options.appId) || {};
 
-      //Adapter
-      let adapter = this.options.adapter;
+      //初始化 Adapter
+      {
+        let adapter = this.options.adapter;
 
-      if(adapter && typeof adapter.default === 'function'){
-        adapter = adapter.default;
+        if(adapter && typeof adapter.default === 'function'){
+          adapter = adapter.default;
+        }
+
+        if(typeof adapter !== 'function'){
+          this.fatal(`options.adapter must be a function`);
+          return;
+        }
+        
+        Adapter = new adapter(this.options, this.config);
       }
 
-      if(typeof adapter !== 'function'){
-        this.fatal(`options.adapter must be a function`);
-        return;
-      }
-      
-      Adapter = new adapter(this.options, this.config);
-
-      //localstorage 基础 JS 代码
-      LsJsCode = fs.readFileSync(`${LsJsPath}/localstorage.js`, 'utf8');
+      //读取 localstorage 基础 JS 代码
+      LsJsCode = readFileSync(`${LsJsPath}/localstorage.js`, 'utf8');
       LsJsCode = this.avoidHasDelimiters(LsJsCode);
     }
 
@@ -149,6 +151,7 @@ export default class LocalstoragePlugin extends Plugin {
 
     return newTokens;
   }
+
   /**
    * avoid has delimiters
    */
@@ -170,7 +173,9 @@ export default class LocalstoragePlugin extends Plugin {
     return content;
   }
 
-  //根据含有 data-ls 属性的 token 生成新的 token lists
+  /**
+   * 根据含有 data-ls 属性的 token 生成新的 token lists
+   */
   async getLsTagTokens(tokenType, token, attrs) {
     let isScript = tokenType === this.TokenType.HTML_TAG_SCRIPT;
 
@@ -266,7 +271,9 @@ export default class LocalstoragePlugin extends Plugin {
     return newTokens;
   }
 
-  //处理 css 中引用资源的路径
+  /**
+   * 处理 css 中引用资源的路径
+   */
   resolvePathInCss(cssPath, tokens) {
     let newTokens = [];
 
@@ -301,7 +308,9 @@ export default class LocalstoragePlugin extends Plugin {
     return newTokens;
   }
 
-  //生成替换占位符对应代码的 token
+  /**
+   * 生成替换占位符对应代码的 token
+   */
   async getlsFlagTokens() {
     let newTokens = [];
     let i = 0;
@@ -321,7 +330,9 @@ export default class LocalstoragePlugin extends Plugin {
     return newTokens;
   }
 
-  //获取一个 token 的所有 attr
+  /**
+   * 获取一个 token 的 attrs
+   */
   getAttrs(tokenType, token) {
     let attrs = [];
 
@@ -342,6 +353,9 @@ export default class LocalstoragePlugin extends Plugin {
     return [];
   }
 
+  /**
+   * 删除一个 token 的 `data-ls` attr
+   */
   removeLsAttr(tokenType, token) {
     if(tokenType === this.TokenType.HTML_TAG_START) {
       token.ext.attrs = token.ext.attrs.filter(attr => attr.name !== 'data-ls');
@@ -350,7 +364,9 @@ export default class LocalstoragePlugin extends Plugin {
     }
   }
 
-  //判断 attr 中是否存在 data-ls
+  /**
+   * 判断一个 token 的 attrs 中是否存在 `data-ls`
+   */
   hasLsAttr(tokenType, attrs) {
     //处理 Link
     if(tokenType === this.TokenType.HTML_TAG_START) {
@@ -389,6 +405,9 @@ export default class LocalstoragePlugin extends Plugin {
     return false;
   }
 
+  /**
+   * 更新指定 data-ls 对应的配置
+   */
   updateLsConfigVersion(lsName, sourceMd5) {
     let lsConfig = this.getLsConfig(lsName);
 
@@ -414,6 +433,9 @@ export default class LocalstoragePlugin extends Plugin {
     }
   }
 
+  /**
+   * 获取指定 data-ls 对应的配置
+   */
   getLsConfig(lsName) {
     let lsConfig = AppConfig[lsName];
 
@@ -479,31 +501,15 @@ export default class LocalstoragePlugin extends Plugin {
     return data;
   }
 
-  async getAppConfig() {
-    if(!isDirectory(AppConfigPath)) {
-      mkdir(AppConfigPath);
-    }
-
-    let appConfigFile = `${AppConfigPath}/${this.options.appId}.json`;
-
-    if(isFile(appConfigFile)) {
-      try {
-        AppConfig = JSON.parse(fs.readFileSync(appConfigFile, 'utf8'));
-      } catch(e) { 
-        AppConfig = {};
-      }
-    }else{
-      AppConfig = {};
-    }
-  }
-
   update(tokens) {
     if(tokens){
       this.setAst(tokens);
     }
   }
 
-  //全部文件跑完之后的全局处理
+  /**
+   * 全部文件跑完之后的全局处理：替换占位符，存储配置
+   */
   static async after(files, instance) {
     //始终没有初始化
     if(!AppConfig) {
@@ -534,11 +540,8 @@ export default class LocalstoragePlugin extends Plugin {
       await file.setContent(fileContent);
     });
 
-    //存储文件
-    let writeFile = promisify(fs.writeFile, fs);
-    let appConfigFile = `${AppConfigPath}/${instance.options.appId}.json`;
-
-    await writeFile(appConfigFile, JSON.stringify(newConfig));
+    //存储配置
+    instance.storage(instance.options.appId, newConfig);
   }
   /**
    * default include
