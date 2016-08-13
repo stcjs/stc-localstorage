@@ -53,7 +53,6 @@ let LsJsCode = '';
 let Adapter = null;
 
 //APP Config 的路径
-const AppConfigPath = `${__dirname}/../tmp`;
 
 //APP 的 LS 配置
 let AppConfig = null;
