@@ -1,7 +1,7 @@
 {
   "name": "stc-localstorage",
   "description": "LocalStorage for stc",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "author": {
     "name": "quguangyu",
     "email": "quguangyu@gmail.com"
@@ -15,10 +15,12 @@
     "prepublish": "npm run compile",
     "eslint": "eslint src/"
   },
-  "contributors": [{
-    "name": "quguangyu",
-    "email": "quguangyu@gmail.com"
-  }],
+  "contributors": [
+    {
+      "name": "quguangyu",
+      "email": "quguangyu@gmail.com"
+    }
+  ],
   "main": "lib/index.js",
   "dependencies": {
     "stc-helper": "1.x.x",
