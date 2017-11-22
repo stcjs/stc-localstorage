@@ -66,7 +66,7 @@ export default class LocalstoragePlugin extends Plugin {
     let content = await this.getContent('utf-8');
 
     //不包含特征的文件，直接忽略
-    if(!RegLsCookie.test(content) || content.indexOf('data-ls') < 0) {
+    if(!RegLsCookie.test(content) && content.indexOf('data-ls') < 0) {
       return;
     }
 
