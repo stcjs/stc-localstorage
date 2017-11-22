@@ -1,7 +1,7 @@
 {
   "name": "stc-localstorage",
   "description": "LocalStorage for stc",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "author": {
     "name": "quguangyu",
     "email": "quguangyu@gmail.com"
@@ -9,7 +9,7 @@
   "scripts": {
     "test": "ava test/",
     "test-cov": "istanbul cover ./node_modules/mocha/bin/_mocha -- -t 50000 --recursive  -R spec test/",
-    "compile": "babel --presets es2015-loose,stage-1 --plugins transform-runtime src/ --out-dir lib/ --source-maps",
+    "compile": "../node_modules/babel-cli/bin/babel.js  --presets es2015-loose,stage-1 --plugins transform-runtime src/ --out-dir lib/ --source-maps",
     "watch-compile": "npm run compile -- --watch",
     "watch": "npm run watch-compile",
     "prepublish": "npm run compile",
