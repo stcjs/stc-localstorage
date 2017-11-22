@@ -52,10 +52,11 @@ let LsJsCode = '';
 //Adapter 实例
 let Adapter = null;
 
-//APP Config 的路径
-
 //APP 的 LS 配置
 let AppConfig = null;
+
+//是否找到 ls flag 的标记
+let FindLSFlag = false;
 
 //已经处理过的 data-ls 属性
 let LsNames = {};
@@ -110,14 +111,13 @@ export default class LocalstoragePlugin extends Plugin {
 
     let oldTokens = await this.getAst();
     let newTokens = [];
-    let findLSFlag = false;
 
     for(let token of oldTokens) {
       let tokenType = token.type;
 
       //找到了 LS 占位符
       if(tokenType === this.TokenType.TPL && RegLsCookie.test(token.ext.value)) {
-        findLSFlag = true;
+        FindLSFlag = true;
         
         let tokens = await this.getlsFlagTokens();
         [].push.apply(newTokens, tokens);
@@ -132,7 +132,7 @@ export default class LocalstoragePlugin extends Plugin {
         //在外链标签上找到了 data-ls 标记
         if(this.hasLsAttr(tokenType, attrs)) {
           //data-ls 属性必须用在 LS 占位符之后
-          if(!findLSFlag) {
+          if(!FindLSFlag) {
             this.fatal(`localStorage cookie name must be set before style or script`, token.loc.start.line, token.loc.start.column);
             return [];
           }
